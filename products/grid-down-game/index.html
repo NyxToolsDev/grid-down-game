@@ -1,0 +1,2325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d0e10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Grid Down</title>
+<link rel="manifest" href="manifest.json">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0e10;--text:#f0a500;--green:#7bc47b;--red:#e24b4a;--dim:#888;--panel:#161820;
+  --bar-bg:#222;--border:#333;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font:16px/1.5 'Courier New',Courier,monospace;overflow:hidden}
+button{font:inherit;cursor:pointer;background:none;border:none;color:inherit}
+input{font:inherit;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:8px 12px}
+
+/* ─── Layout ─── */
+#app{display:flex;flex-direction:column;height:100%;height:100dvh}
+#install-bar{display:none;background:#1a1c24;padding:8px 16px;font-size:14px;color:var(--dim);text-align:center;position:relative}
+#install-bar button{color:var(--text);text-decoration:underline;margin-left:8px}
+#install-bar .close{position:absolute;right:8px;top:50%;transform:translateY(-50%);color:var(--dim);font-size:18px;padding:4px 8px}
+
+#main{display:flex;flex:1;overflow:hidden}
+#game-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#game-text{flex:1;overflow-y:auto;padding:16px;padding-bottom:8px}
+#game-text::-webkit-scrollbar{width:6px}
+#game-text::-webkit-scrollbar-track{background:var(--bg)}
+#game-text::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+#choices{padding:8px 16px;padding-bottom:calc(8px + var(--safe-bottom));flex-shrink:0}
+.choice-btn{display:block;width:100%;min-height:48px;padding:10px 16px;margin-bottom:6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);text-align:left;font-size:15px;transition:border-color .15s,background .15s}
+.choice-btn:hover,.choice-btn:active{border-color:var(--text);background:#1e2030}
+.choice-btn:disabled{opacity:0.4;cursor:default;border-color:var(--border);background:var(--panel)}
+
+#side-panel{width:320px;background:var(--panel);border-left:1px solid var(--border);overflow-y:auto;padding:16px;flex-shrink:0}
+
+/* ─── Mobile header ─── */
+#mobile-header{display:none;background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px;cursor:pointer;user-select:none}
+#mobile-header .stats-row{display:flex;gap:12px;flex-wrap:wrap;font-size:13px}
+#mobile-header .stats-row span{white-space:nowrap}
+#mobile-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:100;overflow-y:auto;padding:16px}
+#mobile-overlay .close-overlay{position:sticky;top:0;text-align:right;padding:8px}
+#mobile-overlay .close-overlay button{color:var(--text);font-size:24px;padding:4px 12px}
+
+/* ─── Resource bars ─── */
+.resource-section{margin-bottom:16px}
+.resource-section h3{font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+.resource-row{display:flex;align-items:center;margin-bottom:6px;font-size:14px}
+.resource-label{width:90px;color:var(--dim);flex-shrink:0}
+.resource-bar{flex:1;height:10px;background:var(--bar-bg);border-radius:5px;overflow:hidden;margin:0 8px}
+.resource-fill{height:100%;border-radius:5px;transition:width .3s,background-color .3s}
+.resource-value{width:50px;text-align:right;font-size:13px}
+
+/* ─── Character cards ─── */
+.char-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px}
+.char-name{font-weight:bold;font-size:14px}
+.char-role{color:var(--dim);font-size:12px;margin-left:6px}
+.char-bars{margin-top:6px}
+.char-bar-row{display:flex;align-items:center;font-size:12px;margin-bottom:3px}
+.char-bar-row .label{width:50px;color:var(--dim)}
+.char-bar-row .bar{flex:1;height:6px;background:var(--bar-bg);border-radius:3px;overflow:hidden;margin:0 6px}
+.char-bar-row .bar .fill{height:100%;border-radius:3px;transition:width .3s,background-color .3s}
+.char-bar-row .val{width:30px;text-align:right;font-size:11px}
+.char-status{font-size:11px;color:var(--dim);margin-top:4px}
+.char-task{font-size:11px;color:var(--text);margin-top:2px}
+.char-dead{opacity:0.4}
+
+/* ─── Day counter ─── */
+.day-counter{text-align:center;font-size:18px;margin-bottom:12px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:6px}
+.day-counter .day-num{font-size:24px;font-weight:bold}
+
+/* ─── Visibility meter ─── */
+.visibility-meter{margin-top:8px}
+.vis-hidden{display:none}
+
+/* ─── Settings panel ─── */
+.settings-group{margin-bottom:12px}
+.settings-group h4{font-size:12px;color:var(--dim);margin-bottom:4px}
+.setting-btn{display:block;width:100%;padding:6px 10px;margin-bottom:3px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:left;color:var(--dim)}
+.setting-btn.active{border-color:var(--text);color:var(--text)}
+.setting-btn:hover{border-color:var(--text)}
+
+/* ─── Upgrade list ─── */
+.upgrade-item{font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);color:var(--dim)}
+.upgrade-item.built{color:var(--green)}
+.upgrade-item.in-progress{color:var(--text)}
+
+/* ─── Game text styling ─── */
+.day-header{color:var(--dim);font-size:14px;margin:16px 0 8px;padding:8px 0 4px;border-top:1px solid var(--border)}
+.day-header:first-child{border-top:none;margin-top:0}
+.phase-label{color:var(--text);font-size:12px;text-transform:uppercase;letter-spacing:2px;margin:12px 0 6px}
+.narrative{color:#ccc;margin-bottom:8px;line-height:1.6}
+.narrative.warning{color:var(--red)}
+.narrative.positive{color:var(--green)}
+.narrative.choice-made{color:var(--text);font-style:italic}
+.resource-delta{font-size:13px;color:var(--dim);margin:2px 0}
+.resource-delta.negative{color:var(--red)}
+.resource-delta.positive{color:var(--green)}
+.saved-indicator{position:fixed;bottom:20px;right:20px;background:var(--panel);color:var(--green);padding:6px 16px;border-radius:4px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:200}
+.saved-indicator.show{opacity:1}
+
+/* ─── Start screen ─── */
+#start-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center}
+#start-screen h1{font-size:48px;letter-spacing:8px;margin-bottom:4px}
+#start-screen .subtitle{color:var(--dim);font-size:16px;margin-bottom:32px}
+.setup-form{width:100%;max-width:400px;text-align:left}
+.setup-form label{display:block;color:var(--dim);font-size:13px;margin-bottom:4px;margin-top:12px}
+.setup-form input{width:100%;margin-bottom:4px}
+.skill-choice{display:flex;gap:8px;margin-top:8px;margin-bottom:16px}
+.skill-btn{flex:1;padding:12px;border:1px solid var(--border);border-radius:6px;text-align:center;font-size:13px;transition:border-color .15s}
+.skill-btn:hover,.skill-btn.selected{border-color:var(--text);background:#1e2030}
+.skill-btn .skill-name{font-weight:bold;margin-bottom:4px}
+.skill-btn .skill-desc{color:var(--dim);font-size:11px}
+#begin-btn{display:block;width:100%;padding:14px;margin-top:20px;background:var(--text);color:var(--bg);border:none;border-radius:6px;font-size:16px;font-weight:bold;letter-spacing:2px;cursor:pointer}
+#begin-btn:hover{background:#d49000}
+
+/* ─── End screen ─── */
+#end-screen{display:none;padding:24px;text-align:center}
+#end-screen h2{font-size:32px;margin-bottom:8px}
+#end-screen .end-subtitle{color:var(--dim);margin-bottom:16px}
+#end-screen .end-narrative{color:#ccc;line-height:1.6;margin-bottom:24px;max-width:600px;margin-left:auto;margin-right:auto;text-align:left}
+.score-breakdown{text-align:left;max-width:400px;margin:0 auto 24px}
+.score-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:14px}
+.score-row .score-label{color:var(--dim)}
+.score-grade{font-size:64px;font-weight:bold;margin-bottom:8px}
+.score-total{font-size:24px;margin-bottom:16px}
+#play-again-btn{padding:14px 32px;background:var(--text);color:var(--bg);border:none;border-radius:6px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:16px}
+
+/* ─── Save/Load panel ─── */
+.save-panel{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
+.save-panel h3{font-size:13px;color:var(--dim);margin-bottom:8px}
+.save-panel textarea{width:100%;height:60px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px;font-size:11px;font-family:monospace;resize:none;margin-bottom:6px}
+.save-panel button{padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;margin-right:4px}
+.save-panel button:hover{border-color:var(--text)}
+
+/* ─── Inventory ─── */
+.inventory-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px}
+.inv-item{padding:3px 6px;background:var(--bg);border-radius:3px;color:var(--dim)}
+.inv-item .inv-count{color:var(--text);float:right}
+
+/* ─── Responsive ─── */
+@media(max-width:767px){
+  #side-panel{display:none}
+  #mobile-header{display:block}
+  #game-text{padding:12px}
+  #choices{padding:8px 12px;padding-bottom:calc(12px + var(--safe-bottom))}
+  .choice-btn{font-size:14px;min-height:44px}
+  .day-counter .day-num{font-size:20px}
+}
+@media(min-width:768px){
+  #mobile-header{display:none !important}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="install-bar">
+    <span id="install-text"></span>
+    <button id="install-btn" onclick="installPWA()">Install</button>
+    <button class="close" onclick="dismissInstall()">&times;</button>
+  </div>
+
+  <div id="mobile-header" onclick="toggleMobileOverlay()">
+    <div class="stats-row" id="mobile-stats"></div>
+    <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:2px">tap for details</div>
+  </div>
+
+  <div id="mobile-overlay">
+    <div class="close-overlay"><button onclick="toggleMobileOverlay()">&times;</button></div>
+    <div id="mobile-dashboard"></div>
+  </div>
+
+  <div id="main">
+    <div id="game-panel">
+      <div id="game-text"></div>
+      <div id="choices"></div>
+    </div>
+    <div id="side-panel">
+      <div id="dashboard"></div>
+    </div>
+  </div>
+
+  <div class="saved-indicator" id="saved-indicator">Saved</div>
+</div>
+
+<script src="game-data.js"></script>
+<script>
+'use strict';
+
+// ─── Game State ───
+let G = null; // current game state
+const $ = id => document.getElementById(id);
+
+function newGameState(names, spouseSkill) {
+  const d = GAME_DATA;
+  return {
+    day: 1,
+    phase: 'morning', // morning, midday, evening
+    characters: {
+      player: { id:'player', name:names.player, role:'Leader', health:10, maxHealth:10, stress:3, alive:true, task:null, conditions:[], skill:'leadership', stressMult:1.5, canAssign:false, daysWithout:{food:0,water:0}, injuryDay:0, illnessDay:0 },
+      spouse: { id:'spouse', name:names.spouse, role:'Spouse', health:10, maxHealth:10, stress:3, alive:true, task:null, conditions:[], skill:spouseSkill, canAssign:true, daysWithout:{food:0,water:0}, injuryDay:0, illnessDay:0, chronicTimer:0 },
+      teen:   { id:'teen', name:names.teen, role:'Teen', health:10, maxHealth:10, stress:3, alive:true, task:null, conditions:[], skill:'scouting', securityStressMult:2.0, canAssign:true, daysWithout:{food:0,water:0}, injuryDay:0, illnessDay:0 },
+      elder:  { id:'elder', name:names.elder, role:'Elderly Parent', health:8, maxHealth:8, stress:3, alive:true, task:null, conditions:[], skill:'morale_anchor', canAssign:false, canRest:true, daysWithout:{food:0,water:0}, injuryDay:0, illnessDay:0 }
+    },
+    npcs: {},
+    resources: { ...d.startingResources },
+    fuel: d.startingResources.fuel,
+    visibility: d.visibility.start,
+    visibilityRevealed: false,
+    rationSetting: 'normal',
+    waterSetting: 'normal',
+    fuelSetting: 'off',
+    inventory: {},
+    upgrades: {},
+    upgradeProgress: {},
+    locationVisits: {},
+    eventsUsed: [],
+    majorEventsUsed: [],
+    consecutiveFoodType: { type: null, count: 0 },
+    deprivationDays: 0,
+    morality: 0,
+    generosity: 0,
+    npcsHelped: 0,
+    daysNoExternal: 0,
+    overnightEvents: [],
+    scavengeResults: [],
+    pendingChoices: null,
+    gameOver: false,
+    endType: null,
+    spouseSkill: spouseSkill,
+    securityBase: 0,
+    gardenDay: 0,
+    hasVehicle: false,
+    vehicleDrained: false,
+    routeScouted: false,
+    tributeTrack: false,
+    falseHope: false,
+    foodTypeHistory: [],
+    specialFlags: {},
+    confrontationTimer: 0,
+    evacuationDay: 0,
+    _prevFood: 14,
+    _scavengedFoodToday: false
+  };
+}
+
+// ─── Utility ───
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function roll(chance) { return Math.random() < chance; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function pick(arr) { return arr[rand(0, arr.length - 1)]; }
+
+function weightedPick(items) {
+  const total = items.reduce((s, i) => s + i.weight, 0);
+  let r = Math.random() * total;
+  for (const item of items) {
+    r -= item.weight;
+    if (r <= 0) return item;
+  }
+  return items[items.length - 1];
+}
+
+function addItem(itemId, qty) {
+  if (!qty || qty <= 0) return;
+  G.inventory[itemId] = (G.inventory[itemId] || 0) + qty;
+}
+
+function hasItem(itemId, qty) {
+  return (G.inventory[itemId] || 0) >= (qty || 1);
+}
+
+function removeItem(itemId, qty) {
+  if (!G.inventory[itemId]) return;
+  G.inventory[itemId] -= qty || 1;
+  if (G.inventory[itemId] <= 0) delete G.inventory[itemId];
+}
+
+function aliveChars() {
+  const chars = Object.values(G.characters).filter(c => c.alive);
+  for (const npc of Object.values(G.npcs)) { if (npc.alive) chars.push(npc); }
+  return chars;
+}
+
+function aliveFamily() {
+  return Object.values(G.characters).filter(c => c.alive);
+}
+
+function assignableChars() {
+  return aliveChars().filter(c => c.canAssign !== false && !c.incapacitated);
+}
+
+function getMedicineEfficiency() {
+  let eff = 1;
+  if (G.spouseSkill === 'medical' && G.characters.spouse.alive) eff *= 2;
+  if (G.upgrades.medical_station) eff *= 2;
+  return eff;
+}
+
+function getSecurity() {
+  let sec = G.securityBase;
+  // Passive from upgrades
+  if (G.upgrades.perimeter_alarm) sec += 1;
+  if (G.upgrades.reinforced_doors) sec += 2;
+  // From guards
+  for (const c of aliveChars()) {
+    if (c.task === 'guard') {
+      sec += 1;
+      if (c.id === 'marcus') sec += 2;
+    }
+  }
+  // Rivera double-watch at high trust
+  if (G.npcs.rivera && G.npcs.rivera.alive && G.npcs.rivera.trust > 7) {
+    sec += 1; // voluntary extra watch
+  }
+  return sec;
+}
+
+function getColor(value, max) {
+  const pct = value / max;
+  if (pct > 0.6) return 'var(--green)';
+  if (pct > 0.3) return 'var(--text)';
+  return 'var(--red)';
+}
+
+function getStressColor(stress) {
+  if (stress <= 4) return 'var(--green)';
+  if (stress <= 7) return 'var(--text)';
+  return 'var(--red)';
+}
+
+// ─── Resource Application ───
+function applyItemToResources(itemId, qty) {
+  const item = GAME_DATA.items[itemId];
+  if (!item) return;
+  if (item.type === 'food' && item.foodValue) {
+    G.resources.food += item.foodValue * qty;
+    trackFoodType(item.foodType);
+  }
+  if (item.type === 'water' && item.waterValue) {
+    G.resources.water += item.waterValue * qty;
+  }
+  if (item.type === 'medicine' && item.medicineValue) {
+    G.resources.medicine += item.medicineValue * qty;
+  }
+  if (item.type === 'fuel' && item.fuelValue) {
+    G.fuel += item.fuelValue * qty;
+  }
+  if (item.type === 'material' || item.type === 'special') {
+    addItem(itemId, qty);
+  }
+  if (item.type === 'morale' && item.moraleValue) {
+    G.resources.cohesion = clamp(G.resources.cohesion + item.moraleValue * qty, 0, 10);
+    if (item.weight > 0) addItem(itemId, qty);
+  }
+  if (item.type === 'water_raw') {
+    addItem(itemId, qty);
+  }
+  // Special items
+  if (itemId === 'geocache' && item.contains) {
+    G.resources.food += item.contains.food;
+    G.resources.medicine += item.contains.medicine;
+    G.resources.water += item.contains.water;
+  }
+}
+
+function trackFoodType(type) {
+  if (!type) return;
+  G._scavengedFoodToday = true;
+  if (G.consecutiveFoodType.type === type) {
+    G.consecutiveFoodType.count++;
+  } else {
+    G.consecutiveFoodType = { type, count: 1 };
+  }
+}
+
+// ─── DOM Rendering ───
+const gameText = $('game-text');
+const choicesEl = $('choices');
+
+function addText(html, cls) {
+  const div = document.createElement('div');
+  div.className = cls || 'narrative';
+  div.innerHTML = html;
+  gameText.appendChild(div);
+  gameText.scrollTop = gameText.scrollHeight;
+}
+
+function addDayHeader() {
+  addText(`Day ${G.day} of 30`, 'day-header');
+}
+
+function addPhaseLabel(label) {
+  addText(label, 'phase-label');
+}
+
+function addDelta(text, positive) {
+  addText(text, 'resource-delta ' + (positive ? 'positive' : 'negative'));
+}
+
+function clearChoices() {
+  choicesEl.innerHTML = '';
+}
+
+function showChoices(choices, callback) {
+  clearChoices();
+  choices.forEach((choice, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = `${i + 1}. ${choice.text}`;
+    btn.disabled = choice.disabled || false;
+    if (choice.disabled && choice.disabledReason) {
+      btn.title = choice.disabledReason;
+      btn.textContent += ` (${choice.disabledReason})`;
+    }
+    btn.onclick = () => {
+      clearChoices();
+      callback(i, choice);
+    };
+    choicesEl.appendChild(btn);
+  });
+}
+
+function showContinue(callback, text) {
+  clearChoices();
+  const btn = document.createElement('button');
+  btn.className = 'choice-btn';
+  btn.textContent = text || 'Continue';
+  btn.onclick = () => { clearChoices(); callback(); };
+  choicesEl.appendChild(btn);
+}
+
+// ─── Dashboard Rendering ───
+function renderDashboard(targetId) {
+  const el = $(targetId);
+  if (!el) return;
+  const d = GAME_DATA;
+  const r = G.resources;
+
+  let html = '';
+
+  // Day counter
+  html += `<div class="day-counter"><div class="day-num">Day ${G.day}</div><div style="font-size:12px;color:var(--dim)">of 30</div></div>`;
+
+  // Resources
+  html += `<div class="resource-section"><h3>Resources</h3>`;
+  const resources = [
+    { label: 'Food', value: r.food, max: d.resourceMax.food, unit: ' days', crisis: d.crisisThresholds.food },
+    { label: 'Water', value: r.water, max: d.resourceMax.water, unit: ' gal', crisis: d.crisisThresholds.water },
+    { label: 'Medicine', value: r.medicine, max: d.resourceMax.medicine, unit: '', crisis: d.crisisThresholds.medicine },
+    { label: 'Fuel', value: G.fuel, max: d.resourceMax.fuel, unit: ' gal', crisis: d.crisisThresholds.fuel },
+    { label: 'Cohesion', value: r.cohesion, max: d.resourceMax.cohesion, unit: '/10', crisis: d.crisisThresholds.cohesionLow }
+  ];
+  for (const res of resources) {
+    const pct = Math.max(0, Math.min(100, (res.value / res.max) * 100));
+    const color = getColor(res.value, res.max);
+    const val = res.label === 'Cohesion' ? res.value.toFixed(1) : (Number.isInteger(res.value) ? res.value : res.value.toFixed(1));
+    html += `<div class="resource-row">
+      <span class="resource-label">${res.label}</span>
+      <div class="resource-bar"><div class="resource-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="resource-value" style="color:${color}">${val}${res.unit}</span>
+    </div>`;
+  }
+  html += `</div>`;
+
+  // Security
+  html += `<div class="resource-section"><h3>Security</h3>`;
+  const sec = getSecurity();
+  const secPct = Math.min(100, sec * 10);
+  html += `<div class="resource-row">
+    <span class="resource-label">Defense</span>
+    <div class="resource-bar"><div class="resource-fill" style="width:${secPct}%;background:${getColor(sec, 10)}"></div></div>
+    <span class="resource-value" style="color:${getColor(sec, 10)}">${sec}</span>
+  </div>`;
+  html += `</div>`;
+
+  // Visibility
+  if (G.visibilityRevealed || G.visibility >= d.visibility.revealThreshold) {
+    G.visibilityRevealed = true;
+    html += `<div class="resource-section visibility-meter"><h3>Exposure</h3>`;
+    const visPct = (G.visibility / d.visibility.max) * 100;
+    const visColor = G.visibility >= 7 ? 'var(--red)' : G.visibility >= 5 ? 'var(--text)' : 'var(--green)';
+    html += `<div class="resource-row">
+      <span class="resource-label">Visibility</span>
+      <div class="resource-bar"><div class="resource-fill" style="width:${visPct}%;background:${visColor}"></div></div>
+      <span class="resource-value" style="color:${visColor}">${G.visibility.toFixed(1)}</span>
+    </div></div>`;
+  }
+
+  // Characters
+  html += `<div class="resource-section"><h3>Family</h3>`;
+  for (const c of Object.values(G.characters)) {
+    html += renderCharCard(c);
+  }
+  for (const c of Object.values(G.npcs)) {
+    html += renderCharCard(c);
+  }
+  html += `</div>`;
+
+  // Ration/Water/Fuel settings
+  html += `<div class="resource-section"><h3>Settings</h3>`;
+  html += `<div class="settings-group"><h4>Food Rations</h4>`;
+  for (const s of d.rationSettings) {
+    html += `<button class="setting-btn ${G.rationSetting===s.id?'active':''}" onclick="changeSetting('ration','${s.id}')">${s.name}<br><span style="font-size:10px;color:var(--dim)">${s.desc}</span></button>`;
+  }
+  html += `</div>`;
+  html += `<div class="settings-group"><h4>Water Use</h4>`;
+  for (const s of d.waterSettings) {
+    html += `<button class="setting-btn ${G.waterSetting===s.id?'active':''}" onclick="changeSetting('water','${s.id}')">${s.name}<br><span style="font-size:10px;color:var(--dim)">${s.desc}</span></button>`;
+  }
+  html += `</div>`;
+  html += `<div class="settings-group"><h4>Generator</h4>`;
+  for (const s of d.fuelSettings) {
+    html += `<button class="setting-btn ${G.fuelSetting===s.id?'active':''}" onclick="changeSetting('fuel','${s.id}')">${s.name}<br><span style="font-size:10px;color:var(--dim)">${s.desc}</span></button>`;
+  }
+  html += `</div></div>`;
+
+  // Upgrades
+  html += `<div class="resource-section"><h3>Shelter Upgrades</h3>`;
+  for (const [uid, upg] of Object.entries(d.upgrades)) {
+    let cls = 'upgrade-item';
+    let status = '';
+    if (G.upgrades[uid]) { cls += ' built'; status = ' [BUILT]'; }
+    else if (G.upgradeProgress[uid]) {
+      cls += ' in-progress';
+      status = ` [${G.upgradeProgress[uid].days}/${upg.laborDays} days]`;
+    }
+    html += `<div class="${cls}">${upg.name}${status}<br><span style="font-size:10px">${upg.desc}</span></div>`;
+  }
+  html += `</div>`;
+
+  // Inventory
+  const invItems = Object.entries(G.inventory).filter(([k,v]) => v > 0);
+  if (invItems.length > 0) {
+    html += `<div class="resource-section"><h3>Inventory</h3><div class="inventory-grid">`;
+    for (const [itemId, count] of invItems) {
+      const item = GAME_DATA.items[itemId];
+      const name = item ? item.name : itemId;
+      html += `<div class="inv-item">${name} <span class="inv-count">x${count}</span></div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  // Save/Load
+  html += `<div class="save-panel"><h3>Save / Load</h3>`;
+  html += `<button onclick="exportSave()">Export Save</button>`;
+  html += `<button onclick="importSave()">Import Save</button>`;
+  html += `<textarea id="save-io-${targetId}" placeholder="Paste save data here to import..."></textarea>`;
+  html += `</div>`;
+
+  el.innerHTML = html;
+}
+
+function renderCharCard(c) {
+  const dead = !c.alive;
+  const hPct = (c.health / (c.maxHealth || 10)) * 100;
+  const sPct = (c.stress / 10) * 100;
+  const hColor = getColor(c.health, c.maxHealth || 10);
+  const sColor = getStressColor(c.stress);
+  const conditions = c.conditions && c.conditions.length > 0 ? c.conditions.join(', ') : '';
+  const taskText = c.task ? GAME_DATA.tasks[c.task] ? GAME_DATA.tasks[c.task].name : c.task : (c.canAssign === false ? (c.id === 'player' ? 'Managing' : 'Resting') : 'Unassigned');
+
+  return `<div class="char-card ${dead?'char-dead':''}">
+    <span class="char-name">${c.name}</span><span class="char-role">${c.role}</span>
+    ${dead ? '<div style="color:var(--red);font-size:12px">Deceased</div>' : `
+    <div class="char-bars">
+      <div class="char-bar-row"><span class="label">Health</span><div class="bar"><div class="fill" style="width:${hPct}%;background:${hColor}"></div></div><span class="val" style="color:${hColor}">${c.health.toFixed(1)}</span></div>
+      <div class="char-bar-row"><span class="label">Stress</span><div class="bar"><div class="fill" style="width:${sPct}%;background:${sColor}"></div></div><span class="val" style="color:${sColor}">${c.stress.toFixed(1)}</span></div>
+    </div>
+    ${conditions ? `<div class="char-status">${conditions}</div>` : ''}
+    <div class="char-task">Task: ${taskText}</div>
+    `}
+  </div>`;
+}
+
+function renderMobileStats() {
+  if (!G) return;
+  const r = G.resources;
+  const getC = (v, m) => { const p = v/m; return p > 0.6 ? 'var(--green)' : p > 0.3 ? 'var(--text)' : 'var(--red)'; };
+  $('mobile-stats').innerHTML = `
+    <span>Day <b>${G.day}</b>/30</span>
+    <span style="color:${getC(r.food,30)}">F:${r.food.toFixed(1)}</span>
+    <span style="color:${getC(r.water,50)}">W:${r.water.toFixed(1)}</span>
+    <span style="color:${getC(r.medicine,20)}">M:${r.medicine.toFixed(1)}</span>
+    <span style="color:${getC(G.fuel,20)}">Fu:${G.fuel.toFixed(1)}</span>
+    <span style="color:${getC(r.cohesion,10)}">C:${r.cohesion.toFixed(1)}</span>
+  `;
+}
+
+function updateAllDashboards() {
+  renderDashboard('dashboard');
+  renderDashboard('mobile-dashboard');
+  renderMobileStats();
+}
+
+function toggleMobileOverlay() {
+  const overlay = $('mobile-overlay');
+  if (overlay.style.display === 'block') {
+    overlay.style.display = 'none';
+  } else {
+    renderDashboard('mobile-dashboard');
+    overlay.style.display = 'block';
+  }
+}
+
+function changeSetting(type, value) {
+  if (type === 'ration') G.rationSetting = value;
+  if (type === 'water') G.waterSetting = value;
+  if (type === 'fuel') G.fuelSetting = value;
+  updateAllDashboards();
+  autoSave();
+}
+
+// ─── Save System ───
+function autoSave() {
+  if (!G || G.gameOver) return;
+  try {
+    localStorage.setItem('griddown_save', JSON.stringify(G));
+    const ind = $('saved-indicator');
+    ind.classList.add('show');
+    setTimeout(() => ind.classList.remove('show'), 500);
+  } catch(e) {}
+}
+
+function loadSave() {
+  try {
+    const data = localStorage.getItem('griddown_save');
+    if (data) return JSON.parse(data);
+  } catch(e) {}
+  return null;
+}
+
+function exportSave() {
+  const str = btoa(JSON.stringify(G));
+  const ta = document.querySelector('#save-io-dashboard') || document.querySelector('#save-io-mobile-dashboard');
+  if (ta) { ta.value = str; ta.select(); }
+  try { navigator.clipboard.writeText(str); } catch(e) {}
+}
+
+function importSave() {
+  const ta = document.querySelector('#save-io-dashboard') || document.querySelector('#save-io-mobile-dashboard');
+  if (!ta || !ta.value.trim()) return;
+  try {
+    G = JSON.parse(atob(ta.value.trim()));
+    updateAllDashboards();
+    gameText.innerHTML = '';
+    addText('Save loaded successfully.', 'narrative positive');
+    resumeGame();
+  } catch(e) {
+    addText('Invalid save data.', 'narrative warning');
+  }
+}
+
+// ─── PWA Install ───
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  showInstallBar('Install Grid Down as an app for offline play.');
+});
+
+function showInstallBar(msg) {
+  if (localStorage.getItem('griddown_install_dismissed')) return;
+  $('install-text').textContent = msg;
+  $('install-bar').style.display = 'block';
+  // iOS detection
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (isIOS && !window.navigator.standalone) {
+    $('install-text').textContent = 'To install: tap the Share button, then "Add to Home Screen"';
+    $('install-btn').style.display = 'none';
+  }
+}
+
+function installPWA() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+  }
+  $('install-bar').style.display = 'none';
+}
+
+function dismissInstall() {
+  $('install-bar').style.display = 'none';
+  localStorage.setItem('griddown_install_dismissed', '1');
+}
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// Generate icons via canvas
+function generateIcon(size) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#0d0e10';
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#f0a500';
+  ctx.font = `bold ${size * 0.3}px 'Courier New', monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('GD', size / 2, size / 2);
+  // Lightning bolt
+  ctx.strokeStyle = '#f0a500';
+  ctx.lineWidth = size * 0.03;
+  const cx = size / 2, cy = size * 0.2;
+  ctx.beginPath();
+  ctx.moveTo(cx + size*0.05, cy);
+  ctx.lineTo(cx - size*0.08, cy + size*0.15);
+  ctx.lineTo(cx, cy + size*0.12);
+  ctx.lineTo(cx - size*0.05, cy + size*0.28);
+  ctx.stroke();
+  return c.toDataURL('image/png');
+}
+
+// Set manifest icons dynamically
+function setupIcons() {
+  ['192', '512'].forEach(size => {
+    const link = document.createElement('link');
+    link.rel = 'apple-touch-icon';
+    link.href = generateIcon(parseInt(size));
+    document.head.appendChild(link);
+  });
+}
+setupIcons();
+
+// ─── Game Start Screen ───
+function showStartScreen() {
+  gameText.innerHTML = '';
+  choicesEl.innerHTML = '';
+  $('side-panel').style.display = 'none';
+  $('mobile-header').style.display = 'none';
+
+  gameText.innerHTML = `<div id="start-screen">
+    <h1>GRID DOWN</h1>
+    <div class="subtitle">A survival simulation</div>
+    <div class="setup-form">
+      <label>Your name</label>
+      <input id="name-player" value="Alex" maxlength="20">
+      <label>Spouse's name</label>
+      <input id="name-spouse" value="Jordan" maxlength="20">
+      <label>Teen's name (age 15-17)</label>
+      <input id="name-teen" value="Casey" maxlength="20">
+      <label>Elderly parent's name</label>
+      <input id="name-elder" value="Pat" maxlength="20">
+      <label>Choose spouse's skill:</label>
+      <div class="skill-choice">
+        <button class="skill-btn selected" id="skill-medical" onclick="selectSkill('medical')">
+          <div class="skill-name">Medical</div>
+          <div class="skill-desc">Treat injuries, 2x medicine effectiveness</div>
+        </button>
+        <button class="skill-btn" id="skill-mechanical" onclick="selectSkill('mechanical')">
+          <div class="skill-name">Mechanical</div>
+          <div class="skill-desc">Build upgrades 50% faster, repair items</div>
+        </button>
+      </div>
+      <button id="begin-btn" onclick="beginGame()">BEGIN</button>
+    </div>
+  </div>`;
+}
+
+let selectedSkill = 'medical';
+window.selectSkill = function(skill) {
+  selectedSkill = skill;
+  document.querySelectorAll('.skill-btn').forEach(b => b.classList.remove('selected'));
+  $('skill-' + skill).classList.add('selected');
+};
+
+function beginGame() {
+  const names = {
+    player: $('name-player').value.trim() || 'Alex',
+    spouse: $('name-spouse').value.trim() || 'Jordan',
+    teen: $('name-teen').value.trim() || 'Casey',
+    elder: $('name-elder').value.trim() || 'Pat'
+  };
+  G = newGameState(names, selectedSkill);
+  gameText.innerHTML = '';
+  $('side-panel').style.display = '';
+  if (window.innerWidth < 768) $('mobile-header').style.display = 'block';
+  updateAllDashboards();
+  startDay();
+}
+
+// ─── Main Game Loop ───
+function startDay() {
+  if (G.gameOver) return;
+
+  // Check win/lose at start of each day (after day 1)
+  if (G.day > 1 && checkEndConditions()) return;
+
+  // Evacuation gauntlet
+  if (G.evacuationDay && G.day >= G.evacuationDay && G.specialFlags.evacuation_prep) {
+    G.specialFlags.evacuation_prep = false;
+    startEvacuationGauntlet();
+    return;
+  }
+
+  G.phase = 'morning';
+  addDayHeader();
+  addPhaseLabel('Morning');
+
+  // Day 1 opening
+  if (G.day === 1) {
+    const opening = GAME_DATA.openingText;
+    opening.morning.split('\n\n').forEach(p => addText(p));
+    addText(opening.instructions, 'narrative positive');
+    showContinue(() => morningPhase());
+    return;
+  }
+
+  // Overnight events
+  processOvernight();
+  morningPhase();
+}
+
+function processOvernight() {
+  // Chronic condition check for spouse
+  const spouse = G.characters.spouse;
+  if (spouse.alive) {
+    spouse.chronicTimer++;
+    const chronicInterval = getMedicineEfficiency() > 1 ? 7 : 5; // medical station/skill extends interval
+    if (spouse.chronicTimer >= chronicInterval) {
+      const medCost = getMedicineEfficiency() > 1 ? 0.5 : 1; // more efficient with medical skill
+      if (G.resources.medicine >= medCost) {
+        G.resources.medicine -= medCost;
+        spouse.chronicTimer = 0;
+        addText(`${spouse.name}'s chronic condition required medication overnight. ${medCost} medicine used.`);
+      } else {
+        spouse.health = Math.max(0, spouse.health - 1);
+        addText(`${spouse.name}'s chronic condition flared without medication. Health declining.`, 'narrative warning');
+        if (spouse.health <= 0 && G.day >= 5) killCharacter(spouse, 'chronic illness');
+      }
+    }
+  }
+
+  // Elder morale anchor
+  const elder = G.characters.elder;
+  if (elder.alive && elder.health > 3) {
+    G.resources.cohesion = clamp(G.resources.cohesion + 0.5, 0, 10);
+  }
+
+  // Base stress increase
+  for (const c of aliveChars()) {
+    let stressAdd = GAME_DATA.drainRates.stressBase;
+    if (c.id === 'player') stressAdd *= 1.5;
+    c.stress = clamp(c.stress + stressAdd, 0, 10);
+  }
+
+  // Cohesion drift toward 5
+  if (G.resources.cohesion > 5) {
+    G.resources.cohesion = Math.max(5, G.resources.cohesion - GAME_DATA.drainRates.cohesionDrift);
+  } else if (G.resources.cohesion < 5) {
+    G.resources.cohesion = Math.min(5, G.resources.cohesion + GAME_DATA.drainRates.cohesionDrift);
+  }
+
+  // Cascading failures
+  checkCascadingFailures();
+
+  // Visibility decay
+  G.daysNoExternal++;
+  if (G.daysNoExternal >= 5) {
+    G.visibility = Math.max(0, G.visibility - 1);
+    G.daysNoExternal = 0;
+  }
+
+  // Menu fatigue
+  if (G.consecutiveFoodType.count >= 5) {
+    for (const c of aliveChars()) {
+      c.stress = clamp(c.stress + 1, 0, 10);
+    }
+    addText('The monotony of eating the same food is wearing on everyone.', 'narrative warning');
+  }
+
+  // NPC trust evolution
+  for (const [npcId, npc] of Object.entries(G.npcs)) {
+    if (!npc.alive) continue;
+
+    // Trust drifts based on cohesion and shared resources
+    if (G.resources.cohesion >= 6) npc.trust = Math.min(10, npc.trust + 0.2);
+    else if (G.resources.cohesion <= 3) npc.trust = Math.max(0, npc.trust - 0.3);
+
+    // Marcus controlling personality: if player made decisions without consulting (no guard/build assigned to Marcus), trust drops
+    if (npcId === 'marcus' && npc.task === null) {
+      npc.trust = Math.max(0, npc.trust - 0.1); // feels excluded
+    }
+    if (npcId === 'marcus' && (npc.task === 'guard' || npc.task === 'build')) {
+      npc.trust = Math.min(10, npc.trust + 0.1); // feels useful
+    }
+
+    // Trust threshold: steal and leave
+    if (npc.trust < (GAME_DATA.recruitableNPCs[npcId]?.trustThreshold || 3)) {
+      if (npcId === 'marcus') {
+        addText(`${npc.name} has grown distrustful. In the night, he took fuel from the garage and left without a word.`, 'narrative warning');
+        G.fuel = Math.max(0, G.fuel - 3);
+        delete G.npcs[npcId];
+      } else if (npcId === 'rivera') {
+        addText('The Riveras left quietly before dawn, taking only what they could carry. Sofia left the seed packets behind.', 'narrative warning');
+        addItem('seeds', 1);
+        delete G.npcs[npcId];
+      }
+    }
+
+    // Rivera high trust bonus
+    if (npcId === 'rivera' && npc.trust > 7) {
+      // Already handled in getSecurity() - just notify once
+      if (!G.specialFlags.rivera_doublewwatch_noted) {
+        addText('Sofia has started volunteering for double watch shifts. She wants to earn her keep.', 'narrative positive');
+        G.specialFlags.rivera_doublewwatch_noted = true;
+      }
+    }
+  }
+
+  // Marcus controlling personality: random demand for input
+  if (G.npcs.marcus && G.npcs.marcus.alive && G.npcs.marcus.trust < 6 && roll(0.2)) {
+    addText('Marcus corners you in the hallway. He wants a say in today\'s planning. His tone makes it clear this is not a request.', 'narrative warning');
+    G.resources.cohesion = Math.max(0, G.resources.cohesion - 0.3);
+  }
+
+  // Visibility: confrontation guarantee at 7+
+  if (G.visibility >= 7) {
+    G.confrontationTimer = (G.confrontationTimer || 0) + 1;
+    if (G.confrontationTimer >= 3 && !G.eventsUsed.includes('security_07')) {
+      // Force the confrontation event into next midday
+      G.forcedEvent = 'security_07';
+      G.confrontationTimer = 0;
+    }
+  } else {
+    G.confrontationTimer = 0;
+  }
+
+  // Visibility: daily security threat at 9+
+  if (G.visibility >= 9 && roll(0.6)) {
+    addText('Your high profile has attracted unwanted attention. Someone was seen watching the house again.', 'narrative warning');
+    for (const c of aliveChars()) c.stress = clamp(c.stress + 0.5, 0, 10);
+    // Chance of supply theft
+    if (roll(0.3)) {
+      const stolen = Math.min(G.resources.food, 1);
+      G.resources.food -= stolen;
+      addText('Supplies were taken from the porch overnight.', 'narrative warning');
+    }
+  }
+
+  // Garden production
+  if (G.upgrades.garden && G.gardenDay > 0) {
+    const daysSinceBuild = G.day - G.gardenDay;
+    if (daysSinceBuild >= 7) {
+      let gardenFood = 0.5;
+      if (G.npcs.rivera) gardenFood += 0.5;
+      G.resources.food += gardenFood;
+      addDelta(`Garden produced +${gardenFood.toFixed(1)} food`, true);
+    }
+  }
+
+  // Rain collection
+  if (G.upgrades.rain_collection && roll(0.4)) {
+    G.resources.water += 2;
+    addDelta('Rain collection gathered +2 gal water', true);
+  }
+
+  // Council membership benefits
+  if (G.specialFlags.join_council && roll(0.3)) {
+    const councilGain = pick(['food', 'water', 'information']);
+    if (councilGain === 'food') { G.resources.food += 0.5; addDelta('Council shared +0.5 food', true); }
+    if (councilGain === 'water') { G.resources.water += 1; addDelta('Council shared +1 water', true); }
+    if (councilGain === 'information') { G.visibilityRevealed = true; }
+  }
+
+  // False hope morale crash
+  if (G.falseHope && G.day === 25) {
+    addText('The ten-day rescue estimate has come and gone. The family realizes you painted an optimistic picture. Trust fractures.', 'narrative warning');
+    G.resources.cohesion = Math.max(0, G.resources.cohesion - 2);
+    for (const c of aliveChars()) c.stress = clamp(c.stress + 2, 0, 10);
+    G.falseHope = false;
+  }
+
+  // Infection watch: ongoing health drain
+  if (G.specialFlags.infection_watch) {
+    const infected = aliveChars().find(c => c.conditions && c.conditions.includes('infected'));
+    if (infected) {
+      infected.health = Math.max(0, infected.health - 0.5);
+      if (infected.health <= 0 && G.day >= 5) killCharacter(infected, 'untreated infection');
+    } else {
+      G.specialFlags.infection_watch = false;
+    }
+  }
+
+  // Nurse contact: reduce severity of medical events
+  // (Handled via getMedicineEfficiency boost — nurse adds +0.5 effective medicine)
+  if (G.specialFlags.nurse_contact && G.resources.medicine > 0) {
+    G.resources.medicine += 0.1; // tiny ongoing benefit from nurse's guidance
+  }
+}
+
+function checkCascadingFailures() {
+  const d = GAME_DATA;
+  const r = G.resources;
+
+  // Food crisis
+  if (r.food < d.crisisThresholds.food) {
+    for (const c of aliveChars()) c.stress = clamp(c.stress + 1, 0, 10);
+    r.cohesion = Math.max(0, r.cohesion - 0.5);
+    addText('Food supplies are critically low. Stress and tension rise.', 'narrative warning');
+  }
+
+  // Water crisis
+  if (r.water < d.crisisThresholds.water) {
+    for (const c of aliveChars()) {
+      c.stress = clamp(c.stress + 2, 0, 10);
+      if (roll(0.1)) {
+        c.conditions = c.conditions || [];
+        if (!c.conditions.includes('dehydrated')) {
+          c.conditions.push('dehydrated');
+          c.health = Math.max(0, c.health - 1);
+          addText(`${c.name} is showing signs of dehydration.`, 'narrative warning');
+        }
+      }
+    }
+  }
+
+  // Fuel at 0
+  if (G.fuel <= 0) {
+    G.fuelSetting = 'off';
+  }
+
+  // Deprivation tracking
+  if (r.food <= 0 && r.water <= 0) {
+    G.deprivationDays++;
+  } else {
+    G.deprivationDays = 0;
+  }
+
+  // Character health tracking
+  for (const c of aliveChars()) {
+    if (r.food <= 0) {
+      c.daysWithout.food++;
+      if (G.day >= 5 && c.daysWithout.food >= 7) killCharacter(c, 'starvation');
+    } else {
+      c.daysWithout.food = 0;
+    }
+    if (r.water <= 0) {
+      c.daysWithout.water++;
+      if (G.day >= 5 && c.daysWithout.water >= 2) killCharacter(c, 'dehydration');
+    } else {
+      c.daysWithout.water = 0;
+    }
+
+    // Health 0 = death (if day 5+)
+    if (c.health <= 0 && G.day >= 5) {
+      killCharacter(c, 'accumulated injuries');
+    }
+
+    // Incapacitation
+    c.incapacitated = c.alive && c.health <= 2 && c.health > 0;
+  }
+
+  // Auto-generate empty cans from eating canned food
+  if (G.consecutiveFoodType.type === 'canned' || r.food < G._prevFood) {
+    const cansUsed = Math.floor(Math.max(0, (G._prevFood || r.food) - r.food));
+    if (cansUsed > 0) addItem('cans_empty', Math.min(cansUsed, 2));
+  }
+  G._prevFood = r.food;
+}
+
+function killCharacter(c, cause) {
+  if (!c.alive) return;
+  c.alive = false;
+  c.health = 0;
+  c.conditions = ['deceased'];
+  addText(`${c.name} has died from ${cause}.`, 'narrative warning');
+}
+
+// ─── Morning Phase ───
+function morningPhase() {
+  // Show resource summary
+  addText(`<b>Resources:</b> Food ${G.resources.food.toFixed(1)} days | Water ${G.resources.water.toFixed(1)} gal | Medicine ${G.resources.medicine.toFixed(1)} | Fuel ${G.fuel.toFixed(1)} gal | Cohesion ${G.resources.cohesion.toFixed(1)}/10`);
+
+  // Show character status
+  for (const c of aliveChars()) {
+    let status = `${c.name} (${c.role}): Health ${c.health.toFixed(1)}, Stress ${c.stress.toFixed(1)}`;
+    if (c.incapacitated) status += ' [INCAPACITATED]';
+    if (c.conditions && c.conditions.length) status += ` [${c.conditions.join(', ')}]`;
+    addText(status, c.health <= 3 || c.stress >= 7 ? 'narrative warning' : 'narrative');
+  }
+
+  // Assignment phase
+  const assignable = assignableChars();
+  if (assignable.length === 0) {
+    addText('No one is available for task assignment.', 'narrative warning');
+    showContinue(() => middayPhase());
+    return;
+  }
+
+  // Reset tasks
+  for (const c of aliveChars()) c.task = null;
+
+  assignNextCharacter(assignable, 0);
+}
+
+function assignNextCharacter(assignable, index) {
+  if (index >= assignable.length) {
+    addText('All tasks assigned.', 'narrative positive');
+    updateAllDashboards();
+    autoSave();
+    showContinue(() => middayPhase(), 'Proceed to midday');
+    return;
+  }
+
+  const c = assignable[index];
+  addText(`<b>Assign ${c.name} (${c.role}):</b>`);
+
+  const choices = [];
+
+  // Guard
+  choices.push({ text: `Guard — security +1, stress +0.5`, task: 'guard' });
+
+  // Scavenge
+  const locations = Object.values(GAME_DATA.locations).filter(l => l.scavengeable);
+  for (const loc of locations) {
+    const visits = G.locationVisits[loc.id] || 0;
+    const depleted = visits >= (loc.maxVisits || Infinity);
+    const risk = loc.riskLevel;
+    choices.push({
+      text: `Scavenge: ${loc.name} (${risk} risk)${depleted ? ' [picked clean]' : ''}`,
+      task: 'scavenge',
+      location: loc.id,
+      disabled: depleted,
+      disabledReason: depleted ? 'picked clean' : null
+    });
+  }
+
+  // Forage
+  const gardenReady = G.upgrades.garden && G.gardenDay && (G.day - G.gardenDay >= 7);
+  choices.push({
+    text: `Forage / Garden — ${gardenReady ? '+0.8 food' : '+0.3 food'}`,
+    task: 'forage'
+  });
+
+  // Rest
+  choices.push({ text: 'Rest — health +1, stress -1', task: 'rest' });
+
+  // Build
+  const buildable = Object.entries(GAME_DATA.upgrades).filter(([uid, upg]) => {
+    if (G.upgrades[uid]) return false;
+    return true;
+  });
+  if (buildable.length > 0) {
+    for (const [uid, upg] of buildable) {
+      const hasMats = Object.entries(upg.materials).every(([mat, qty]) => hasItem(mat, qty));
+      const inProgress = G.upgradeProgress[uid];
+      const label = inProgress
+        ? `Build: ${upg.name} (${inProgress.days}/${upg.laborDays} days done)`
+        : `Build: ${upg.name}`;
+      choices.push({
+        text: label + (hasMats || inProgress ? '' : ' [need materials]'),
+        task: 'build',
+        upgradeId: uid,
+        disabled: !hasMats && !inProgress,
+        disabledReason: !hasMats && !inProgress ? 'need materials' : null
+      });
+    }
+  }
+
+  // Trade
+  if (Object.keys(G.npcs).length > 0) {
+    choices.push({ text: 'Trade with NPCs', task: 'trade' });
+  }
+
+  // Cohesion refusal check
+  const willRefuse = G.resources.cohesion < 3 && roll(0.3);
+  // Stress failure check
+  const willFail = c.stress > 8 && roll(0.5);
+
+  showChoices(choices, (idx, choice) => {
+    if (willRefuse) {
+      addText(`${c.name} refuses the assignment. Cohesion is too low.`, 'narrative warning');
+      c.task = 'rest';
+    } else if (willFail) {
+      addText(`${c.name} tries but cannot focus. Too much stress.`, 'narrative warning');
+      c.task = 'rest';
+    } else {
+      c.task = choice.task;
+      if (choice.task === 'scavenge') c.scavengeTarget = choice.location;
+      if (choice.task === 'build') c.buildTarget = choice.upgradeId;
+      addText(`${c.name} assigned to: ${choice.text}`, 'narrative choice-made');
+    }
+    updateAllDashboards();
+    assignNextCharacter(assignable, index + 1);
+  });
+}
+
+// ─── Midday Phase ───
+function middayPhase() {
+  G.phase = 'midday';
+  addPhaseLabel('Midday');
+
+  // Check for forced visibility confrontation event
+  if (G.forcedEvent) {
+    const forcedEvt = GAME_DATA.events.find(e => e.id === G.forcedEvent);
+    G.forcedEvent = null;
+    if (forcedEvt && !G.eventsUsed.includes(forcedEvt.id)) {
+      runEvent(forcedEvt, () => {
+        const regularEvents = getRandomEvents(1);
+        runEventChain(regularEvents, () => {
+          showContinue(() => eveningPhase(), 'Proceed to evening');
+        });
+      });
+      return;
+    }
+  }
+
+  // Check for major events first
+  const majorEvent = getMajorEvent();
+  if (majorEvent) {
+    runEvent(majorEvent, () => {
+      // Then run 1-2 regular events
+      const regularEvents = getRandomEvents(roll(0.4) ? 2 : 1);
+      runEventChain(regularEvents, () => {
+        showContinue(() => eveningPhase(), 'Proceed to evening');
+      });
+    });
+  } else {
+    const events = getRandomEvents(roll(0.4) ? 2 : 1);
+    if (events.length === 0) {
+      addText('The day passes quietly. An uneasy calm settles over the neighborhood.');
+      showContinue(() => eveningPhase(), 'Proceed to evening');
+    } else {
+      runEventChain(events, () => {
+        showContinue(() => eveningPhase(), 'Proceed to evening');
+      });
+    }
+  }
+}
+
+function getMajorEvent() {
+  const d = GAME_DATA;
+  // Fixed day events
+  for (const evt of d.majorEvents) {
+    if (G.majorEventsUsed.includes(evt.id)) continue;
+    if (evt.day > 0 && G.day === evt.day) return evt;
+    if (evt.day === -1 && evt.prereq && evt.prereq(G)) return evt;
+  }
+  // Every-5-day check for unscheduled majors
+  if (G.day % 5 === 0) {
+    for (const evt of d.majorEvents) {
+      if (G.majorEventsUsed.includes(evt.id)) continue;
+      if (evt.day > 0 && Math.abs(G.day - evt.day) <= 2) return evt;
+    }
+  }
+  return null;
+}
+
+function getRandomEvents(count) {
+  const pool = GAME_DATA.events.filter(evt => {
+    if (G.eventsUsed.includes(evt.id)) return false;
+    if (evt.dayRange && (G.day < evt.dayRange[0] || G.day > evt.dayRange[1])) return false;
+    if (evt.prereq && !evt.prereq(G)) return false;
+    // Security events more likely at high visibility
+    if (evt.category === 'security' && G.visibility >= 5) return true;
+    return true;
+  });
+  if (pool.length === 0) return [];
+
+  const selected = [];
+  const usedCategories = new Set();
+  for (let i = 0; i < count && pool.length > 0; i++) {
+    // Weight security events higher at high visibility
+    const weighted = pool.map(e => ({
+      ...e,
+      _weight: (e.category === 'security' && G.visibility >= 5) ? 3 : 1
+    }));
+    const evt = weightedPick(weighted.map(e => ({ ...e, weight: e._weight })));
+    if (!evt || usedCategories.has(evt.category)) {
+      // Try different category
+      const other = pool.find(e => !usedCategories.has(e.category) && e.id !== (evt?.id));
+      if (other) {
+        selected.push(other);
+        usedCategories.add(other.category);
+        pool.splice(pool.indexOf(other), 1);
+      }
+    } else {
+      selected.push(evt);
+      usedCategories.add(evt.category);
+      pool.splice(pool.indexOf(evt), 1);
+    }
+  }
+  return selected;
+}
+
+function runEventChain(events, callback) {
+  if (events.length === 0) { callback(); return; }
+  const evt = events.shift();
+  runEvent(evt, () => runEventChain(events, callback));
+}
+
+function getElderWisdom(evt) {
+  const cat = evt.category;
+  const elderName = G.characters.elder.name;
+  // Generate contextual wisdom choice based on event category
+  const wisdomMap = {
+    weather: {
+      text: `Ask ${elderName} — they have seen weather like this before`,
+      result: `${elderName} settles into the chair and thinks. "In '94, we had three days of this. The trick is to use it, not fight it. Weather passes. Panic doesn't." The advice is practical and calming. Everyone listens.`,
+      effects: { cohesion: 0.5 },
+      stressEffects: { all: -0.5 }
+    },
+    medical: {
+      text: `Ask ${elderName} for their advice on the medical situation`,
+      result: `${elderName} leans forward. "Your grandmother used to say: rest heals more than medicine. Keep them warm, keep them hydrated, and let the body work." Simple advice, but it steadies your nerves.`,
+      effects: { cohesion: 0.3 },
+      stressEffects: { all: -0.5 },
+      healthEffects: { randomOne: 0.5 }
+    },
+    stranger: {
+      text: `Ask ${elderName} — they know people`,
+      result: `${elderName} looks at you carefully. "In my experience, desperate people are not the same as bad people. But you do not owe anyone your family's safety. Help where you can, but keep your eyes open." The nuance helps you think more clearly.`,
+      effects: { cohesion: 0.5 },
+      stressEffects: { player: -1 }
+    },
+    security: {
+      text: `Ask ${elderName} what they think about the threat`,
+      result: `${elderName}'s voice is quiet but firm. "The ones who make noise are not the ones to worry about. It is the quiet ones. Lock up, stay calm, and remember that most people just want to feel safe. Same as us." The family relaxes a fraction.`,
+      effects: { cohesion: 0.5 },
+      stressEffects: { all: -0.5 }
+    },
+    resource: {
+      text: `Ask ${elderName} if they remember anything useful`,
+      result: `${elderName} thinks for a moment. "When I was young, we stretched everything. Your grandfather could make a can of beans feed four people with enough rice and water. Nothing is used up until you decide it is." You find something you overlooked.`,
+      effects: { food: 0.3, cohesion: 0.3 }
+    },
+    morale: {
+      text: `Let ${elderName} speak — they have something to say`,
+      result: `${elderName} clears their throat. "I have lived through things that felt like the end of the world. They were not. This will not be either. But only if we hold together." The words hang in the air, simple and true.`,
+      effects: { cohesion: 1 },
+      stressEffects: { all: -1 }
+    },
+    infrastructure: {
+      text: `Ask ${elderName} about the old ways of handling this`,
+      result: `${elderName} nods slowly. "Before everything was electric and automatic, people fixed things themselves. Let me think..." They describe a workaround from memory that saves time and materials.`,
+      effects: { cohesion: 0.3 }
+    },
+    information: {
+      text: `Ask ${elderName} to help make sense of this`,
+      result: `${elderName} listens to the information carefully, then offers context. "I have heard this kind of talk before. The truth is usually somewhere between the best and worst versions. Plan for the middle." Measured advice that helps calibrate expectations.`,
+      effects: { cohesion: 0.3 },
+      stressEffects: { all: -0.5 }
+    }
+  };
+  return wisdomMap[cat] || null;
+}
+
+function runEvent(evt, callback) {
+  G.eventsUsed.push(evt.id);
+  if (evt.id.startsWith('major_') || evt.recruitEvent) G.majorEventsUsed.push(evt.id);
+
+  addText(`<b>${evt.title || 'Event'}</b>`);
+  addText(evt.description);
+
+  // Elder wisdom: inject bonus choice if elder is alive and healthy
+  let eventChoices = [...evt.choices];
+  const elder = G.characters.elder;
+  if (elder && elder.alive && elder.health > 3 && !evt.noElderWisdom) {
+    const wisdomChoices = getElderWisdom(evt);
+    if (wisdomChoices) eventChoices.push(wisdomChoices);
+  }
+
+  // Filter choices by conditions
+  const validChoices = eventChoices.map(choice => {
+    const disabled = choice.condition ? !choice.condition(G) : false;
+    return { ...choice, disabled, disabledReason: disabled ? 'Requirements not met' : null };
+  });
+
+  showChoices(validChoices, (idx, choice) => {
+    addText(`> ${choice.text}`, 'narrative choice-made');
+    addText(choice.result);
+    applyEventEffects(choice, evt.category);
+    updateAllDashboards();
+    autoSave();
+    if (callback) showContinue(callback);
+  });
+}
+
+function applyEventEffects(choice, eventCategory) {
+  const fx = choice.effects || {};
+
+  if (fx.food) { G.resources.food = Math.max(0, G.resources.food + fx.food); addDelta(`Food ${fx.food > 0 ? '+' : ''}${fx.food}`, fx.food > 0); }
+  if (fx.water) { G.resources.water = Math.max(0, G.resources.water + fx.water); addDelta(`Water ${fx.water > 0 ? '+' : ''}${fx.water}`, fx.water > 0); }
+  if (fx.medicine) {
+    let medAmt = fx.medicine;
+    // Medical skill doubles medicine gains (not losses)
+    if (medAmt > 0 && getMedicineEfficiency() > 1) medAmt *= getMedicineEfficiency();
+    G.resources.medicine = Math.max(0, G.resources.medicine + medAmt);
+    addDelta(`Medicine ${medAmt > 0 ? '+' : ''}${medAmt}`, medAmt > 0);
+  }
+  if (fx.fuel) { G.fuel = Math.max(0, G.fuel + fx.fuel); addDelta(`Fuel ${fx.fuel > 0 ? '+' : ''}${fx.fuel}`, fx.fuel > 0); }
+  if (fx.cohesion) { G.resources.cohesion = clamp(G.resources.cohesion + fx.cohesion, 0, 10); addDelta(`Cohesion ${fx.cohesion > 0 ? '+' : ''}${fx.cohesion}`, fx.cohesion > 0); }
+  if (fx.visibility) { G.visibility = clamp(G.visibility + fx.visibility, 0, 10); G.daysNoExternal = 0; }
+  if (fx.morality) { G.morality += fx.morality; }
+  if (fx.generosity) { G.generosity += fx.generosity; }
+  // Handle morality at choice root level (some events have it there)
+  if (choice.morality && !fx.morality) { G.morality += choice.morality; }
+
+  // Stress effects
+  if (choice.stressEffects) {
+    for (const [target, amount] of Object.entries(choice.stressEffects)) {
+      if (target === 'all') {
+        for (const c of aliveChars()) {
+          let mult = 1;
+          // Teen anxiety: 2x stress from security events
+          if (c.id === 'teen' && amount > 0 && eventCategory === 'security') mult = 2;
+          // Player decision fatigue: 1.5x stress from all events
+          if (c.id === 'player' && amount > 0) mult = Math.max(mult, 1.5);
+          c.stress = clamp(c.stress + amount * mult, 0, 10);
+        }
+      } else {
+        const c = G.characters[target] || G.npcs[target];
+        if (c && c.alive) {
+          let mult = 1;
+          if (c.id === 'teen' && amount > 0 && eventCategory === 'security') mult = 2;
+          if (c.id === 'player' && amount > 0) mult = Math.max(mult, 1.5);
+          c.stress = clamp(c.stress + amount * mult, 0, 10);
+        }
+      }
+    }
+  }
+
+  // Health effects
+  if (choice.healthEffects) {
+    const applyHealth = (c, amount) => {
+      if (!c || !c.alive) return;
+      // Elder fragile health: illness hits 2x harder
+      if (c.id === 'elder' && amount < 0 && (eventCategory === 'medical')) amount *= 2;
+      // Medical skill/station reduces medicine cost in healing
+      if (amount > 0 && getMedicineEfficiency() > 1) amount = Math.min(amount * getMedicineEfficiency(), (c.maxHealth||10) - c.health);
+      c.health = clamp(c.health + amount, 0, c.maxHealth || 10);
+      if (c.health <= 0 && G.day >= 5) killCharacter(c, 'injuries');
+      else if (amount < 0) addText(`${c.name} is affected.`, 'narrative warning');
+    };
+    for (const [target, amount] of Object.entries(choice.healthEffects)) {
+      if (target === 'all') {
+        for (const c of aliveChars()) applyHealth(c, amount);
+      } else if (target === 'randomOne') {
+        const chars = aliveChars().filter(c => c.id !== 'player');
+        if (chars.length > 0) applyHealth(pick(chars), amount);
+      } else if (target === 'random2') {
+        const chars = aliveChars().sort(() => Math.random() - 0.5).slice(0, 2);
+        for (const c of chars) applyHealth(c, amount);
+      } else {
+        applyHealth(G.characters[target] || G.npcs[target], amount);
+      }
+    }
+  }
+
+  // Inventory costs
+  if (choice.inventoryCost) {
+    for (const [item, qty] of Object.entries(choice.inventoryCost)) {
+      removeItem(item, qty);
+    }
+  }
+
+  // Special flags
+  if (choice.special) {
+    G.specialFlags[choice.special] = true;
+    handleSpecial(choice.special);
+  }
+}
+
+function handleSpecial(flag) {
+  switch (flag) {
+    case 'recruit_marcus':
+    case 'recruit_marcus_temp':
+      G.npcs.marcus = {
+        id: 'marcus', name: 'Marcus', role: 'Neighbor', health: 10, maxHealth: 10,
+        stress: 4, alive: true, task: null, conditions: [], skill: 'security',
+        canAssign: true, trust: 4, daysWithout: { food: 0, water: 0 }, injuryDay: 0, illnessDay: 0
+      };
+      G.npcsHelped++;
+      addText('Marcus has joined your group.', 'narrative positive');
+      break;
+    case 'recruit_rivera':
+      G.npcs.rivera = {
+        id: 'rivera', name: 'Sofia Rivera', role: 'Refugee', health: 8, maxHealth: 10,
+        stress: 5, alive: true, task: null, conditions: [], skill: 'agriculture',
+        canAssign: true, trust: 6, daysWithout: { food: 0, water: 0 }, injuryDay: 0, illnessDay: 0
+      };
+      G.npcsHelped++;
+      addText('The Riveras have joined your group.', 'narrative positive');
+      break;
+    case 'rivera_seeds':
+      addItem('seeds', 1);
+      addText('Sofia left seed packets on the counter.', 'narrative positive');
+      break;
+    case 'vehicle_ready':
+      G.hasVehicle = true;
+      break;
+    case 'vehicle_drained':
+      G.vehicleDrained = true;
+      G.hasVehicle = false;
+      break;
+    case 'route_scouted':
+      G.routeScouted = true;
+      break;
+    case 'salvage_materials':
+      addItem('tarps', 1);
+      addItem('container', 1);
+      addText('Salvaged a tarp and container from the debris.', 'narrative positive');
+      break;
+    case 'tree_firewood':
+      addItem('firewood', 4);
+      addText('The fallen tree yields plenty of firewood.', 'narrative positive');
+      break;
+    case 'water_reserve':
+      G.specialFlags.water_reserve = true;
+      break;
+    case 'hidden_reserve':
+      G.resources.food += 2;
+      break;
+    case 'dog_rescue':
+      G.resources.cohesion = clamp(G.resources.cohesion + 0.5, 0, 10);
+      addText('The rescue lifts everyone\'s spirits.', 'narrative positive');
+      break;
+    case 'garden_head_start':
+      if (!G.upgrades.garden) {
+        G.upgradeProgress.garden = { days: 1 };
+      }
+      break;
+    case 'electrician_tip':
+      if (hasItem('solar_panel')) {
+        G.upgradeProgress.solar_charger = G.upgradeProgress.solar_charger || { days: 0 };
+        G.upgradeProgress.solar_charger.days++;
+      }
+      break;
+
+    // ─── Security / Threat specials ───
+    case 'tribute_track':
+      G.tributeTrack = true;
+      // They will come back — increase security threat
+      G.visibility = clamp(G.visibility + 0.5, 0, 10);
+      break;
+    case 'security_threat_increase':
+      G.visibility = clamp(G.visibility + 1, 0, 10);
+      G.securityBase = Math.max(0, G.securityBase - 1);
+      break;
+    case 'bluff_consequence':
+      // 50% chance the bluff backfires in 3-5 days
+      if (roll(0.5)) G.visibility = clamp(G.visibility + 2, 0, 10);
+      break;
+    case 'confrontation_escalation':
+      G.visibility = clamp(G.visibility + 1, 0, 10);
+      // Guaranteed follow-up threat
+      G.confrontationTimer = 2;
+      break;
+    case 'demand_defied':
+      // They might come back harder
+      if (roll(0.4)) G.confrontationTimer = 2;
+      break;
+    case 'protection_racket':
+      G.specialFlags.protection_racket = true;
+      // Reduces future security events if maintained
+      G.securityBase += 1;
+      break;
+    case 'joined_group':
+      G.securityBase += 2;
+      G.visibility = clamp(G.visibility + 1, 0, 10);
+      break;
+    case 'defense_prep':
+      G.securityBase += 1;
+      break;
+    case 'security_drill':
+      G.securityBase += 1;
+      addText('The family is better prepared for the next emergency.', 'narrative positive');
+      break;
+    case 'lockdown_mode':
+      G.securityBase += 2;
+      G.visibility = Math.max(0, G.visibility - 1);
+      break;
+
+    // ─── Information / Intelligence specials ───
+    case 'false_hope':
+      G.falseHope = true;
+      // If rescue doesn't come by day 25, massive morale hit
+      break;
+    case 'community_leader':
+      G.visibility = clamp(G.visibility + 1, 0, 10);
+      G.resources.cohesion = clamp(G.resources.cohesion + 0.5, 0, 10);
+      G.morality += 1;
+      break;
+    case 'radio_monitoring':
+      G.specialFlags.radio_monitoring = true;
+      break;
+    case 'batteries_saved':
+      addItem('batteries', 2);
+      break;
+    case 'neighborhood_map':
+      // Scavenging locations give +1 bonus loot roll
+      G.specialFlags.neighborhood_map = true;
+      break;
+    case 'survival_knowledge':
+      // Permanent forage improvement
+      G.specialFlags.survival_knowledge = true;
+      break;
+    case 'jim_intel':
+      // Reveal visibility score if not already shown
+      G.visibilityRevealed = true;
+      break;
+    case 'north_intel':
+      G.specialFlags.north_intel = true;
+      break;
+    case 'supply_drop_intel':
+      G.specialFlags.supply_drop_intel = true;
+      G.hasVehicle = G.hasVehicle || false; // needs vehicle to reach
+      break;
+
+    // ─── Trade / Community specials ───
+    case 'trade_fair':
+      // Gain random useful supplies from trading
+      const tradeFairItems = ['canned_food', 'water_bottles', 'medicine_basic', 'batteries', 'tools'];
+      const fairItem = pick(tradeFairItems);
+      applyItemToResources(fairItem, 1);
+      addText(`Traded successfully at the fair: gained ${GAME_DATA.items[fairItem]?.name || fairItem}.`, 'narrative positive');
+      break;
+    case 'trade_intel':
+      // Learn what others have — bonus to next scavenge
+      G.specialFlags.trade_intel = true;
+      break;
+    case 'join_council':
+      G.specialFlags.join_council = true;
+      G.securityBase += 1;
+      // Council membership provides ongoing benefits in processOvernight
+      break;
+    case 'council_option':
+      G.specialFlags.council_option = true;
+      break;
+    case 'jaylen_question':
+      // Follow-up event possibility
+      G.specialFlags.jaylen_question = true;
+      G.npcsHelped++;
+      break;
+    case 'nurse_contact':
+      G.specialFlags.nurse_contact = true;
+      // Future medical events are less severe
+      break;
+
+    // ─── Medical specials ───
+    case 'infection_risk':
+      // 40% chance of infection event in 2-3 days
+      if (roll(0.4)) G.specialFlags.pending_infection = true;
+      break;
+    case 'infection_watch':
+      // Ongoing health drain until treated
+      G.specialFlags.infection_watch = true;
+      break;
+    case 'pharmacy_priority':
+      // Next pharmacy visit gets bonus loot
+      G.specialFlags.pharmacy_priority = true;
+      break;
+
+    // ─── Infrastructure specials ───
+    case 'gas_risk':
+      // Small ongoing risk
+      if (roll(0.1)) {
+        addText('The gas leak worsened. An evacuation of the kitchen was necessary.', 'narrative warning');
+        for (const c of aliveChars()) c.stress = clamp(c.stress + 1, 0, 10);
+      }
+      break;
+    case 'supply_security':
+      // Reduces chance of future theft events
+      G.specialFlags.supply_security = true;
+      break;
+    case 'freezer_storage':
+      // Extra inventory capacity (narrative only — already unlimited)
+      addItem('container', 1);
+      break;
+    case 'garage_compromised':
+      // Items stored in garage at risk
+      G.specialFlags.garage_compromised = true;
+      break;
+    case 'battery_charge':
+      addItem('batteries', 2);
+      G.specialFlags.battery_charge = true;
+      break;
+    case 'generator_off':
+      G.fuelSetting = 'off';
+      break;
+    case 'no_generator':
+      G.fuelSetting = 'off';
+      G.specialFlags.no_generator = true;
+      break;
+    case 'generator_repair':
+      addText('The generator hums back to life.', 'narrative positive');
+      break;
+
+    // ─── Scavenge / Weather specials ───
+    case 'fog_scavenge_bonus':
+      // Next scavenge has reduced visibility cost
+      G.specialFlags.fog_scavenge_bonus = true;
+      break;
+    case 'extended_scavenge':
+      // Allow two scavenge assignments today (already past morning, so add bonus loot)
+      const bonusItems = ['canned_food', 'water_bottles', 'tools'];
+      const bonusItem = pick(bonusItems);
+      applyItemToResources(bonusItem, 1);
+      addText(`Extended scavenging yielded extra: ${GAME_DATA.items[bonusItem]?.name || bonusItem}.`, 'narrative positive');
+      break;
+    case 'final_scavenge':
+      // Trigger multi-location scavenge in evening
+      G.specialFlags.final_scavenge = true;
+      break;
+    case 'school_bonus_loot':
+      // Add bonus loot to school location
+      G.specialFlags.school_bonus_loot = true;
+      addItem('water_bottles', 2);
+      addText('Mrs. Chen\'s tip pays off — water bottles from the school nurse\'s office.', 'narrative positive');
+      break;
+
+    // ─── Evacuation specials ───
+    case 'evacuation_prep':
+      G.specialFlags.evacuation_prep = true;
+      // Triggers evacuation gauntlet next day
+      G.evacuationDay = G.day + 1;
+      break;
+
+    case 'salvage_materials':
+      // Already handled above but included for completeness
+      break;
+  }
+}
+
+// ─── Water Purification ───
+function purifyCreekWater() {
+  const rawWater = G.inventory.water_unpurified || 0;
+  if (rawWater <= 0) return;
+
+  if (G.upgrades.water_filter) {
+    // Filter purifies all raw water without fuel
+    const purified = rawWater;
+    G.resources.water += purified;
+    delete G.inventory.water_unpurified;
+    addDelta(`Water filter purified +${purified} gal creek water`, true);
+  } else if (G.fuel > 0 && G.fuelSetting !== 'off') {
+    // Boiling: costs 0.5 fuel per 4 gallons
+    const fuelNeeded = rawWater * 0.125;
+    const fuelAvailable = G.fuel;
+    const canPurify = Math.min(rawWater, Math.floor(fuelAvailable / 0.125));
+    if (canPurify > 0) {
+      const fuelCost = canPurify * 0.125;
+      G.fuel -= fuelCost;
+      G.resources.water += canPurify;
+      G.inventory.water_unpurified -= canPurify;
+      if (G.inventory.water_unpurified <= 0) delete G.inventory.water_unpurified;
+      addDelta(`Boiled +${canPurify} gal creek water (-${fuelCost.toFixed(1)} fuel)`, true);
+    }
+  } else if (rawWater > 0) {
+    addText(`You have ${rawWater} gallons of creek water but no way to purify it. Build a water filter or use fuel to boil it.`, 'narrative warning');
+  }
+}
+
+// ─── Daily Food Type Tracking ───
+function trackDailyFoodType() {
+  // Determine what type of food was consumed today based on what's dominant in supply
+  // This is a simplification: track based on most recent food type added
+  // The real tracking happens via trackFoodType() when food items are applied
+  // Here we just check forage-only days
+  const anyoneForaged = aliveChars().some(c => c.task === 'forage');
+  if (anyoneForaged && !G._scavengedFoodToday) {
+    trackFoodType('foraged');
+  }
+  G._scavengedFoodToday = false;
+}
+
+// ─── Evening Phase ───
+function eveningPhase() {
+  G.phase = 'evening';
+  addPhaseLabel('Evening');
+
+  // Consume daily resources
+  consumeResources();
+
+  // Resolve scavenging
+  resolveScavenging();
+
+  // Resolve building
+  resolveBuilding();
+
+  // Resolve other tasks
+  resolveOtherTasks();
+
+  // Purify creek water automatically
+  purifyCreekWater();
+
+  // Track food type for menu fatigue (daily consumption)
+  trackDailyFoodType();
+
+  // NPC resource consumption
+  for (const [npcId, npc] of Object.entries(G.npcs)) {
+    if (npc.alive) {
+      const npcData = GAME_DATA.recruitableNPCs[npcId];
+      if (npcData) {
+        G.resources.food -= (npcData.consumesFood || 1) * getDrainMult('food');
+        G.resources.water -= (npcData.consumesWater || 4) * getDrainMult('water');
+      }
+    }
+  }
+
+  // Clamp resources
+  G.resources.food = Math.max(0, G.resources.food);
+  G.resources.water = Math.max(0, G.resources.water);
+  G.resources.medicine = Math.max(0, G.resources.medicine);
+  G.fuel = Math.max(0, G.fuel);
+  G.resources.cohesion = clamp(G.resources.cohesion, 0, 10);
+
+  // Day summary
+  addText(`<b>End of Day ${G.day}</b>`);
+  addText(`Food: ${G.resources.food.toFixed(1)} | Water: ${G.resources.water.toFixed(1)} | Medicine: ${G.resources.medicine.toFixed(1)} | Fuel: ${G.fuel.toFixed(1)} | Cohesion: ${G.resources.cohesion.toFixed(1)}`);
+
+  updateAllDashboards();
+  autoSave();
+
+  // Check end conditions
+  if (checkEndConditions()) return;
+
+  // Advance day
+  G.day++;
+
+  showContinue(() => startDay(), `Advance to Day ${G.day}`);
+}
+
+function getDrainMult(type) {
+  if (type === 'food') {
+    const setting = GAME_DATA.rationSettings.find(s => s.id === G.rationSetting);
+    return setting ? setting.foodMult : 1;
+  }
+  if (type === 'water') {
+    const setting = GAME_DATA.waterSettings.find(s => s.id === G.waterSetting);
+    return setting ? setting.waterMult / 4 : 1; // normalize
+  }
+  return 1;
+}
+
+function consumeResources() {
+  // Food
+  const foodDrain = GAME_DATA.drainRates.food[G.rationSetting] || 1;
+  const familyCount = aliveFamily().length;
+  G.resources.food -= foodDrain * (familyCount / 4); // scale by alive family members
+  if (G.rationSetting === 'tight') {
+    for (const c of aliveChars()) c.stress = clamp(c.stress + 0.5, 0, 10);
+  }
+  if (G.rationSetting === 'survival') {
+    for (const c of aliveChars()) {
+      c.stress = clamp(c.stress + 1, 0, 10);
+      c.health = Math.max(0, c.health - 0.5);
+    }
+  }
+  addDelta(`Food consumed: -${(foodDrain * (familyCount / 4)).toFixed(1)} (${G.rationSetting} rations)`, false);
+
+  // Water
+  const waterSetting = GAME_DATA.waterSettings.find(s => s.id === G.waterSetting);
+  const waterDrain = waterSetting ? waterSetting.waterMult : 4;
+  G.resources.water -= waterDrain * (familyCount / 4);
+  if (G.waterSetting === 'hygiene') {
+    for (const c of aliveChars()) c.stress = clamp(c.stress - 0.3, 0, 10);
+  }
+  if (G.waterSetting === 'conservation') {
+    for (const c of aliveChars()) {
+      c.stress = clamp(c.stress + 0.5, 0, 10);
+      if (roll(0.05)) { c.health = Math.max(0, c.health - 0.5); }
+    }
+  }
+  addDelta(`Water consumed: -${(waterDrain * (familyCount / 4)).toFixed(1)} gal`, false);
+
+  // Fuel
+  const fuelSetting = GAME_DATA.fuelSettings.find(s => s.id === G.fuelSetting);
+  let fuelDrain = fuelSetting ? fuelSetting.fuelMult : 0;
+  if (G.upgrades.solar_charger) fuelDrain *= 0.5;
+  if (fuelDrain > 0) {
+    G.fuel -= fuelDrain;
+    addDelta(`Fuel consumed: -${fuelDrain.toFixed(1)} gal`, false);
+    if (G.fuelSetting === 'generator') {
+      for (const c of aliveChars()) c.stress = clamp(c.stress - 0.3, 0, 10);
+    }
+    if (G.fuelSetting === 'heating') {
+      for (const c of aliveChars()) {
+        c.stress = clamp(c.stress - 0.5, 0, 10);
+        c.health = Math.min(c.maxHealth || 10, c.health + 0.5);
+      }
+    }
+  }
+}
+
+function resolveScavenging() {
+  for (const c of aliveChars()) {
+    if (c.task !== 'scavenge' || !c.scavengeTarget) continue;
+
+    const loc = GAME_DATA.locations[c.scavengeTarget];
+    if (!loc || !loc.lootTable) continue;
+
+    G.locationVisits[loc.id] = (G.locationVisits[loc.id] || 0) + 1;
+    const visits = G.locationVisits[loc.id];
+
+    addText(`<b>${c.name} returns from ${loc.name}:</b>`);
+
+    // Visibility from scavenging
+    if (loc.visibilityGain) {
+      let visGain = loc.visibilityGain;
+      if (G.specialFlags.fog_scavenge_bonus) { visGain = 0; G.specialFlags.fog_scavenge_bonus = false; }
+      G.visibility = clamp(G.visibility + visGain, 0, 10);
+      if (visGain > 0) G.daysNoExternal = 0;
+    }
+
+    if (visits > (loc.maxVisits || Infinity)) {
+      addText(loc.depletedDesc || 'The location has been picked clean.', 'narrative warning');
+      continue;
+    }
+
+    // Loot rolls
+    let itemsFound = 0;
+    const maxItems = 6; // carry limit
+    let weightCarried = 0;
+    const maxWeight = 6;
+
+    let lootRolls = visits <= 2 ? 3 : (visits <= 4 ? 2 : 1);
+    if (G.specialFlags.neighborhood_map) lootRolls++; // map bonus
+    if (G.specialFlags.pharmacy_priority && loc.id === 'pharmacy') { lootRolls += 2; G.specialFlags.pharmacy_priority = false; }
+    for (let i = 0; i < lootRolls && weightCarried < maxWeight; i++) {
+      const loot = weightedPick(loc.lootTable);
+      if (loot.item === 'nothing') {
+        addText('Found nothing useful in this area.', 'narrative');
+        continue;
+      }
+
+      // Check requirements
+      if (loot.requiresItem && !hasItem(loot.requiresItem)) continue;
+
+      const qty = rand(loot.quantity[0], loot.quantity[1]);
+      const weight = (loot.heavy ? 2 : 1) * qty;
+      if (weightCarried + weight > maxWeight) continue;
+      weightCarried += weight;
+
+      const item = GAME_DATA.items[loot.item];
+      if (item) {
+        addText(`Found: ${item.name} x${qty}`, 'narrative positive');
+        applyItemToResources(loot.item, qty);
+        itemsFound += qty;
+      }
+    }
+
+    // Teen bonus loot
+    if (c.id === 'teen' && roll(0.3)) {
+      const bonusLoot = weightedPick(loc.lootTable.filter(l => l.item !== 'nothing'));
+      if (bonusLoot) {
+        const qty = 1;
+        const item = GAME_DATA.items[bonusLoot.item];
+        if (item) {
+          addText(`${c.name}'s sharp eyes spotted something extra: ${item.name}`, 'narrative positive');
+          applyItemToResources(bonusLoot.item, qty);
+        }
+      }
+    }
+
+    if (itemsFound === 0) {
+      addText('Came back empty-handed.', 'narrative');
+    }
+
+    // Random scavenging encounter (low chance)
+    if (roll(0.15) && loc.riskLevel !== 'none' && loc.riskLevel !== 'low') {
+      addText(`${c.name} had a tense encounter at ${loc.name} but returned safely.`, 'narrative warning');
+      c.stress = clamp(c.stress + 1, 0, 10);
+    }
+
+    c.scavengeTarget = null;
+  }
+}
+
+function resolveBuilding() {
+  for (const c of aliveChars()) {
+    if (c.task !== 'build' || !c.buildTarget) continue;
+
+    const uid = c.buildTarget;
+    const upg = GAME_DATA.upgrades[uid];
+    if (!upg || G.upgrades[uid]) continue;
+
+    // Check materials on first day of building
+    if (!G.upgradeProgress[uid]) {
+      const hasMats = Object.entries(upg.materials).every(([mat, qty]) => hasItem(mat, qty));
+      if (!hasMats) {
+        addText(`Cannot start ${upg.name} — missing materials.`, 'narrative warning');
+        c.buildTarget = null;
+        continue;
+      }
+      // Consume materials
+      for (const [mat, qty] of Object.entries(upg.materials)) {
+        removeItem(mat, qty);
+      }
+      G.upgradeProgress[uid] = { days: 0 };
+    }
+
+    // Add labor
+    let laborAdd = 1;
+    if (c.id === 'spouse' && G.spouseSkill === 'mechanical') laborAdd = 1.5;
+    G.upgradeProgress[uid].days += laborAdd;
+
+    const laborNeeded = upg.laborDays;
+    if (G.upgradeProgress[uid].days >= laborNeeded) {
+      G.upgrades[uid] = true;
+      delete G.upgradeProgress[uid];
+      addText(`${upg.name} completed.`, 'narrative positive');
+
+      // Apply upgrade effects
+      if (uid === 'garden') {
+        G.gardenDay = G.day;
+      }
+    } else {
+      addText(`${c.name} worked on ${upg.name} (${G.upgradeProgress[uid].days.toFixed(1)}/${laborNeeded} days).`);
+    }
+
+    c.buildTarget = null;
+  }
+}
+
+function resolveOtherTasks() {
+  for (const c of aliveChars()) {
+    switch (c.task) {
+      case 'guard':
+        c.stress = clamp(c.stress + 0.5, 0, 10);
+        break;
+      case 'forage': {
+        const gardenReady = G.upgrades.garden && G.gardenDay && (G.day - G.gardenDay >= 7);
+        let gain = gardenReady ? 0.8 : 0.3;
+        if (G.specialFlags.survival_knowledge) gain += 0.2; // knowledge bonus
+        G.resources.food += gain;
+        addDelta(`${c.name} foraged: +${gain.toFixed(1)} food`, true);
+        break;
+      }
+      case 'rest':
+        c.health = Math.min(c.maxHealth || 10, c.health + 1);
+        c.stress = Math.max(0, c.stress - 1);
+        // Remove minor conditions
+        c.conditions = (c.conditions || []).filter(cond => cond !== 'dehydrated');
+        break;
+      case 'trade':
+        G.visibility = clamp(G.visibility + 1, 0, 10);
+        G.daysNoExternal = 0;
+        // Simple trade result
+        if (roll(0.5)) {
+          addText(`${c.name} made a successful trade.`, 'narrative positive');
+          const tradeType = pick(['food', 'water', 'medicine']);
+          if (tradeType === 'food') { G.resources.food += 1; addDelta('Trade: +1 food', true); }
+          if (tradeType === 'water') { G.resources.water += 3; addDelta('Trade: +3 water', true); }
+          if (tradeType === 'medicine') { G.resources.medicine += 1; addDelta('Trade: +1 medicine', true); }
+        } else {
+          addText(`${c.name} could not find a favorable trade today.`);
+        }
+        break;
+    }
+  }
+}
+
+// ─── Win/Lose Conditions ───
+function checkEndConditions() {
+  // Deprivation
+  if (G.deprivationDays >= 2) {
+    endGame('deprivation');
+    return true;
+  }
+
+  // All dead
+  if (aliveFamily().length === 0) {
+    endGame('death_all');
+    return true;
+  }
+
+  // Group fracture
+  if (G.resources.cohesion <= 0) {
+    const highStress = aliveChars().some(c => c.stress > 8);
+    if (highStress) {
+      endGame('fracture');
+      return true;
+    }
+  }
+
+  // Day 30+ win checks
+  if (G.day >= 30) {
+    const aliveF = aliveFamily().length;
+    const aliveTotal = aliveChars().length;
+    const hasGarden = G.upgrades.garden && G.gardenDay && (G.day - G.gardenDay >= 7);
+    const hasWaterSys = G.upgrades.rain_collection || G.upgrades.water_filter;
+    const sec = getSecurity();
+
+    if (hasGarden && hasWaterSys && sec > 6 && aliveTotal >= 3) {
+      endGame('selfsufficient');
+      return true;
+    }
+    if (aliveF >= 2 && G.resources.cohesion > 3) {
+      endGame('rescued');
+      return true;
+    }
+    // Reached day 30 but didn't meet best conditions — still rescued if alive
+    if (aliveF >= 1) {
+      endGame('rescued');
+      return true;
+    }
+    endGame('death_all');
+    return true;
+  }
+
+  return false;
+}
+
+function endGame(type) {
+  G.gameOver = true;
+  G.endType = type;
+
+  const ending = GAME_DATA.endings[type];
+  if (!ending) return;
+
+  // Replace name tokens
+  let text = ending.text;
+  text = text.replace(/{spouse_name}/g, G.characters.spouse.name);
+  text = text.replace(/{teen_name}/g, G.characters.teen.name);
+  text = text.replace(/{elder_name}/g, G.characters.elder.name);
+  text = text.replace(/{days_survived}/g, G.day);
+
+  // Calculate score
+  const score = calculateScore();
+
+  gameText.innerHTML = '';
+  clearChoices();
+
+  const isWin = ['rescued', 'selfsufficient', 'evacuated'].includes(type);
+
+  gameText.innerHTML = `<div id="end-screen" style="display:block">
+    <h2>${isWin ? 'SURVIVED' : 'GAME OVER'}</h2>
+    <div class="end-subtitle">${ending.title}</div>
+    <div class="end-narrative">${text.split('\n').map(p => `<p>${p}</p>`).join('')}</div>
+    <div class="score-grade" style="color:${isWin ? 'var(--green)' : 'var(--red)'}">${score.grade}</div>
+    <div class="score-total">Score: ${score.total} / 164</div>
+    <div class="score-breakdown">
+      <div class="score-row"><span class="score-label">Days Survived (${Math.min(G.day, 30)})</span><span>${score.days}</span></div>
+      <div class="score-row"><span class="score-label">Characters Alive (${score.aliveCount})</span><span>${score.alive}</span></div>
+      <div class="score-row"><span class="score-label">NPCs Helped (${G.npcsHelped})</span><span>${score.npcs}</span></div>
+      <div class="score-row"><span class="score-label">Upgrades (${Object.keys(G.upgrades).length})</span><span>${score.upgrades}</span></div>
+      <div class="score-row"><span class="score-label">Generosity</span><span>${score.generosityScore}</span></div>
+      <div class="score-row"><span class="score-label">Moral Choices</span><span>${score.moralScore}</span></div>
+    </div>
+    <button id="play-again-btn" onclick="restartGame()">Play Again</button>
+  </div>`;
+}
+
+function calculateScore() {
+  const s = GAME_DATA.scoring;
+  const days = Math.min(G.day, 30) * s.daysSurvived.perDay;
+  const aliveCount = aliveChars().length;
+  const alive = aliveCount * s.charactersAlive.perChar;
+  const npcs = G.npcsHelped * s.npcsHelped.perNPC;
+  const upgrades = Object.keys(G.upgrades).length * s.upgradesCompleted.perUpgrade;
+  const generosityScore = Math.min(s.generosity.max, G.generosity * 4);
+  const moralScore = Math.min(s.moralChoices.max, Math.max(0, G.morality * 4));
+
+  const total = days + alive + npcs + upgrades + generosityScore + moralScore;
+  const grade = s.grades.find(g => total >= g.min)?.grade || 'F';
+
+  return { days, alive, aliveCount, npcs, upgrades, generosityScore, moralScore, total, grade };
+}
+
+function restartGame() {
+  localStorage.removeItem('griddown_save');
+  G = null;
+  showStartScreen();
+}
+
+// ─── Evacuation Gauntlet ───
+function startEvacuationGauntlet() {
+  addDayHeader();
+  addPhaseLabel('Evacuation');
+  addText('The van rolls out of the driveway at first light. The house shrinks in the rearview mirror. Everything you built, everything you defended — left behind. The road ahead is uncertain, but staying was no longer an option.');
+  addText('You have fuel, food, and your family. The FEMA staging area is roughly 30 miles north. Three obstacles stand between you and rescue.');
+
+  const gauntletEvents = GAME_DATA.evacuationEvents;
+  let gauntletIndex = 0;
+  let gauntletPassed = 0;
+
+  function runGauntletEvent() {
+    if (gauntletIndex >= gauntletEvents.length) {
+      // All passed — evacuation success
+      if (gauntletPassed >= gauntletEvents.length) {
+        endGame('evacuated');
+      } else {
+        // Failed — return home
+        addText('The evacuation attempt has failed. You turn the van around and head home, shaken but alive. The remaining days must be survived the hard way.', 'narrative warning');
+        for (const c of aliveChars()) c.stress = clamp(c.stress + 3, 0, 10);
+        G.resources.cohesion = Math.max(0, G.resources.cohesion - 1);
+        G.day++;
+        showContinue(() => startDay(), `Return home — Day ${G.day}`);
+      }
+      return;
+    }
+
+    const evt = gauntletEvents[gauntletIndex];
+    gauntletIndex++;
+
+    addText(`<b>${evt.title}</b>`);
+    addText(evt.description);
+
+    const validChoices = evt.choices.map(choice => {
+      const disabled = choice.condition ? !choice.condition(G) : false;
+      return { ...choice, disabled, disabledReason: disabled ? 'Requirements not met' : null };
+    });
+
+    showChoices(validChoices, (idx, choice) => {
+      addText(`> ${choice.text}`, 'narrative choice-made');
+      addText(choice.result);
+      applyEventEffects(choice, evt.category);
+
+      let result = choice.gauntletResult;
+      if (result === 'risky_60') result = roll(0.6) ? 'pass' : 'fail';
+      if (result === 'risky_70') result = roll(0.7) ? 'pass' : 'fail';
+
+      if (result === 'abort') {
+        addText('You turn back. The evacuation is abandoned.', 'narrative warning');
+        G.day++;
+        for (const c of aliveChars()) c.stress = clamp(c.stress + 2, 0, 10);
+        showContinue(() => startDay(), `Return home — Day ${G.day}`);
+        return;
+      }
+
+      if (result === 'pass') {
+        gauntletPassed++;
+        addText('You press on.', 'narrative positive');
+      } else {
+        addText('The attempt goes wrong. Damage to the van, lost supplies, wasted fuel.', 'narrative warning');
+        G.fuel = Math.max(0, G.fuel - 1);
+        for (const c of aliveChars()) c.health = Math.max(0, c.health - 1);
+      }
+
+      updateAllDashboards();
+      autoSave();
+      showContinue(() => runGauntletEvent());
+    });
+  }
+
+  runGauntletEvent();
+}
+
+// ─── Resume Game ───
+function resumeGame() {
+  if (!G) return;
+  updateAllDashboards();
+  $('side-panel').style.display = '';
+  if (window.innerWidth < 768) $('mobile-header').style.display = 'block';
+
+  if (G.gameOver) {
+    endGame(G.endType);
+    return;
+  }
+
+  // Resume from current phase
+  switch (G.phase) {
+    case 'morning': morningPhase(); break;
+    case 'midday': middayPhase(); break;
+    case 'evening':
+    default:
+      startDay();
+      break;
+  }
+}
+
+// ─── Initialize ───
+function init() {
+  // Check for save — in standalone mode auto-load
+  const save = loadSave();
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+  if (save && isStandalone) {
+    G = save;
+    gameText.innerHTML = '';
+    addText('Welcome back. Resuming your game.', 'narrative positive');
+    resumeGame();
+  } else if (save) {
+    gameText.innerHTML = `<div id="start-screen">
+      <h1>GRID DOWN</h1>
+      <div class="subtitle">A survival simulation</div>
+      <div style="margin-top:32px">
+        <button id="begin-btn" onclick="loadAndResume()" style="margin-bottom:12px">Continue Saved Game (Day ${save.day})</button>
+        <button id="begin-btn" onclick="showStartScreen()" style="background:var(--panel);color:var(--text);border:1px solid var(--border)">New Game</button>
+      </div>
+    </div>`;
+  } else {
+    showStartScreen();
+  }
+
+  // Show install bar if applicable
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (isIOS && !window.navigator.standalone && !localStorage.getItem('griddown_install_dismissed')) {
+    showInstallBar('');
+  }
+}
+
+window.loadAndResume = function() {
+  const save = loadSave();
+  if (save) {
+    G = save;
+    gameText.innerHTML = '';
+    addText('Game loaded.', 'narrative positive');
+    resumeGame();
+  }
+};
+
+// Expose functions
+window.changeSetting = changeSetting;
+window.exportSave = exportSave;
+window.importSave = importSave;
+window.restartGame = restartGame;
+window.installPWA = installPWA;
+window.dismissInstall = dismissInstall;
+window.toggleMobileOverlay = toggleMobileOverlay;
+window.beginGame = beginGame;
+
+init();
+</script>
+</body>
+</html>
