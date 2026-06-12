@@ -1,10 +1,12 @@
-const CACHE_NAME = 'grid-down-v1';
+const CACHE_NAME = 'grid-down-v2';
 const ASSETS = [
   './',
   './index.html',
   './game-data.js',
   './manifest.json',
-  './sw.js'
+  './sw.js',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', e => {

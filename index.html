@@ -131,6 +131,15 @@ input{font:inherit;background:var(--panel);color:var(--text);border:1px solid va
 .score-total{font-size:24px;margin-bottom:16px}
 #play-again-btn{padding:14px 32px;background:var(--text);color:var(--bg);border:none;border-radius:6px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:16px}
 
+/* ─── Cross-promo (Get Home prequel) ─── */
+.promo-card{margin:20px auto 4px;max-width:420px;padding:14px 16px;border:1px solid var(--border);border-radius:6px;text-align:left}
+.promo-kicker{font-size:11px;letter-spacing:2px;color:var(--dim);margin-bottom:6px}
+.promo-card p{font-size:13px;margin-bottom:10px}
+.promo-link{display:inline-block;color:var(--green);text-decoration:none;border:1px solid var(--green);border-radius:4px;padding:8px 12px;font-size:13px}
+.promo-link:hover{background:var(--green);color:var(--bg)}
+.promo-footer{margin-top:14px;font-size:12px;color:var(--dim);text-align:center}
+.promo-footer a{color:var(--green);text-decoration:none}
+
 /* ─── Save/Load panel ─── */
 .save-panel{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
 .save-panel h3{font-size:13px;color:var(--dim);margin-bottom:8px}
@@ -760,6 +769,7 @@ function showStartScreen() {
         </button>
       </div>
       <button id="begin-btn" onclick="beginGame()">BEGIN</button>
+      <div class="promo-footer">Prequel: <a href="https://nyxtoolsdev.github.io/grid-down-get-home/" target="_blank" rel="noopener">GRID DOWN: GET HOME</a> &mdash; the walk home, as an 8-bit adventure</div>
     </div>
   </div>`;
 }
@@ -2145,6 +2155,11 @@ function endGame(type) {
       <div class="score-row"><span class="score-label">Upgrades (${Object.keys(G.upgrades).length})</span><span>${score.upgrades}</span></div>
       <div class="score-row"><span class="score-label">Generosity</span><span>${score.generosityScore}</span></div>
       <div class="score-row"><span class="score-label">Moral Choices</span><span>${score.moralScore}</span></div>
+    </div>
+    <div class="promo-card">
+      <div class="promo-kicker">BEFORE THE 30 DAYS</div>
+      <p>The grid failed at 4:17 PM on a Tuesday &mdash; and someone was 38 miles from home.</p>
+      <a class="promo-link" href="https://nyxtoolsdev.github.io/grid-down-get-home/" target="_blank" rel="noopener">PLAY GRID DOWN: GET HOME &mdash; the 8-bit prequel</a>
     </div>
     <button id="play-again-btn" onclick="restartGame()">Play Again</button>
   </div>`;
