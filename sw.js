@@ -1,4 +1,4 @@
-const CACHE_NAME = 'grid-down-v2';
+const CACHE_NAME = 'grid-down-v3';
 const ASSETS = [
   './',
   './index.html',
